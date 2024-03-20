@@ -1,15 +1,18 @@
 import PersonForm from './components/PersonForm';
 import Filter from './components/Filter';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Persons from './components/Persons';
+import axios from 'axios';
+import personService from './services/persons';
 
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: 'Arto Hellas', number: '040-123456', id: 1 },
-    { name: 'Ada Lovelace', number: '39-44-5323523', id: 2 },
-    { name: 'Dan Abramov', number: '12-43-234345', id: 3 },
-    { name: 'Mary Poppendieck', number: '39-23-6423122', id: 4 }
-  ]);
+  const [persons, setPersons] = useState([]);
+
+  useEffect(() => {
+    personService.getAll().then((initialPersons) => {
+      setPersons(initialPersons);
+    });
+  }, []);
 
   const [newName, setNewName] = useState('');
   const [newNumber, setNewNumber] = useState('');
@@ -18,16 +21,53 @@ const App = () => {
   const addName = (e) => {
     e.preventDefault();
     // console.log(persons[0].name);
+    const personObject = {
+      name: newName,
+      number: newNumber
+    };
 
     // checks if name given is already in the list
-    const duplicateName = persons.find((name) => name.name === newName);
+    const person = persons.find((p) => p.name === newName);
+    // changes number from existing person
+    const changeNumber = (id) => {
+      if (
+        window.confirm(
+          `${newName} is already added to phonebook, replace the old number with a new one?`
+        )
+      ) {
+        const changedNumber = { ...person, number: newNumber };
 
-    duplicateName
-      ? alert(`${newName} is already added to phonebook`)
-      : setPersons([...persons, { name: newName, number: newNumber }]);
+        personService.update(id, changedNumber).then((returnedPerson) => {
+          setPersons(
+            persons.map((person) =>
+              person.id !== id ? person : returnedPerson
+            )
+          );
+        });
+      }
+    };
+    person
+      ? changeNumber(person.id)
+      : personService.create(personObject).then((returnedPerson) => {
+          setPersons(persons.concat(returnedPerson));
+        });
 
     setNewName('');
     setNewNumber('');
+  };
+
+  const deleteName = (id) => {
+    const person = persons.find((p) => p.id === id);
+    if (window.confirm(`Delete ${person.name} ?`)) {
+      personService
+        .deletePerson(id)
+        .then(() => {
+          setPersons(persons.filter((p) => p.id !== id));
+        })
+        .catch((error) => {
+          alert(`'${person.name}' was already deleted from server`);
+        });
+    }
   };
 
   const handleNameChange = (e) => {
@@ -60,7 +100,7 @@ const App = () => {
         numberChange={handleNumberChange}
       />
       <h2>Numbers</h2>
-      <Persons filteredName={filteredName} />
+      <Persons filteredName={filteredName} deleteName={deleteName} />
     </div>
   );
 };
