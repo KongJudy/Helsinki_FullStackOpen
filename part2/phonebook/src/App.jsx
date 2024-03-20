@@ -2,21 +2,23 @@ import PersonForm from './components/PersonForm';
 import Filter from './components/Filter';
 import { useState, useEffect } from 'react';
 import Persons from './components/Persons';
-import axios from 'axios';
 import personService from './services/persons';
+import Notification from './components/Notification';
+import ErrorMessage from './components/ErrorMessage';
 
 const App = () => {
   const [persons, setPersons] = useState([]);
+  const [newName, setNewName] = useState('');
+  const [newNumber, setNewNumber] = useState('');
+  const [findName, setFindName] = useState('');
+  const [message, setMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
     personService.getAll().then((initialPersons) => {
       setPersons(initialPersons);
     });
   }, []);
-
-  const [newName, setNewName] = useState('');
-  const [newNumber, setNewNumber] = useState('');
-  const [findName, setFindName] = useState('');
 
   const addName = (e) => {
     e.preventDefault();
@@ -37,19 +39,39 @@ const App = () => {
       ) {
         const changedNumber = { ...person, number: newNumber };
 
-        personService.update(id, changedNumber).then((returnedPerson) => {
-          setPersons(
-            persons.map((person) =>
-              person.id !== id ? person : returnedPerson
-            )
-          );
-        });
+        personService
+          .update(id, changedNumber)
+          .then((returnedPerson) => {
+            setPersons(
+              persons.map((person) =>
+                person.id !== id ? person : returnedPerson
+              )
+            );
+            // notification when existing person's number has changed
+            setMessage(`Added new number for ${person.name}`);
+            setTimeout(() => {
+              setMessage(null);
+            }, 5000);
+          })
+          .catch((error) => {
+            setErrorMessage(
+              `Information of ${newName} has already been removed from server`
+            );
+            setTimeout(() => {
+              setErrorMessage(null);
+            }, 5000);
+          });
       }
     };
     person
       ? changeNumber(person.id)
       : personService.create(personObject).then((returnedPerson) => {
           setPersons(persons.concat(returnedPerson));
+          // notification when person is added
+          setMessage(`Added ${newName}`);
+          setTimeout(() => {
+            setMessage(null);
+          }, 5000);
         });
 
     setNewName('');
@@ -90,6 +112,8 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification message={message} />
+      <ErrorMessage message={errorMessage} />
       <Filter value={findName} onChange={handleFindChange} />
       <h2>add a new</h2>
       <PersonForm
